@@ -29,6 +29,8 @@ https://storymaps.arcgis.com/collections/a074c5321dd64ca2902ba72c7012ae64?item=3
 
 ## Setup and install
 
+This workflow assumes you have installed the latest (v > 2.4) in the folder where this project resides.
+
 Depends on the BirdNET CLI to allow command line running of BirdNET. Details on above webpage.
 
 We need to make sure file names of .wav files have this format:
