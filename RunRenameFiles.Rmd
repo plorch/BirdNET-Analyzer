@@ -1,0 +1,28 @@
+---
+title: "RunRenameFiles"
+author: "Patrick D. lorch"
+date: "2024-08-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Run RenameFiles.R function rnFileWithLoc() on multiple directories
+
+For this to work you need to have a 'dir_with_dirs' that has dirs with .wav files to be renamed.
+
+Ideally, you use this on files you have just copied off of microSD cards.
+
+```{r running}
+library(stringr)
+
+dir_with_dirs = "C:/Users/PatrickLorch/OneDrive - SSRS/ARU_bird_callanalysis/BirdNET-Analyzer/testfiles"
+
+rename_dir_list = list.files(path = dir_with_names, 
+                              full.names = T)
+lapply(rename_dir_list, rnFileWithLoc)
+
+```
+

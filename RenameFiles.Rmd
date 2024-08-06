@@ -1,0 +1,40 @@
+---
+title: "RenameFiles.Rmd"
+author: "Patrick D. lorch"
+date: "2024-06-25"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Rename files with location
+
+We need to make sure file names of .wav files have this format:
+LOCATIONorARUID_YYYYMMDD_HHMMSS.WAV
+
+The monitoR package has a function fileCopyRename that does some of this.  We should probably start using this to put sound files into directories on the hard 
+
+This was the .Rmd version that allowed me to develop rnFileWithLoc() and the RunRenameFiles.Rmd.  It may provide a more flexible way to rename files.
+
+```{r rename}
+library(stringr)
+
+dir_with_names = "C:/Users/PatrickLorch/OneDrive - SSRS/ARU_bird_callanalysis/BirdNET-Analyzer/testfiles/F1"
+
+# Decide if you want to specify the recorder name or use the enclosing folder
+location_name = basename(dir_with_names)
+# location_name = "FR1"
+
+rename_file_list = list.files(path = dir_with_names, 
+                              pattern = ".wav", 
+                              full.names = T)
+bn = basename(rename_file_list)
+bn1 = paste(location_name, bn, sep = "_")
+dn = dirname(rename_file_list)
+new_names = file.path(dn, bn1)
+
+file.rename(rename_file_list, new_names)
+```
+
