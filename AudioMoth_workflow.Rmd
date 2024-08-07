@@ -355,7 +355,7 @@ highconf_verified_sgcnetc_rows = highconf_verified %>%
 
 source("SpecListen.R")
 
-spec_listen(df = sel_table, sel_row = 5034)
+spec_listen(df = sel_table, sel_row = 11253)
 
 ```
 
@@ -380,4 +380,48 @@ write.csv(highconf_verified_final_confirmed, file.path(o.results, "highconf_veri
 ```
 
 
+## Move analyzed and restart
+
+If the computer shuts down during an run through the BirdNET model, you can use these methods to move files around and restart the model on just the unprocessed files.
+
+* Find what was completed
+* copy them out someplace
+* check they copied
+* 
+
+```{r partial}
+# Find file identifiers from completed results files ind input files
+# Find which ones were not processed
+o.list = list.files(o.results)
+o.list.1st = sapply(strsplit(o.list, "\\."), "[", 1 )
+i.list = list.files(i.audio)
+i.list.1st = sapply(strsplit(i.list, "\\."), "[", 1 )
+diff.list = setdiff(i.list.1st, o.list.1st)
+
+# Copy and remove completed files
+# This will screw up the selection table file references unless you copy
+# all the files back into the original directory and combine the selection
+# tables.
+# finished.files = file.path(i.audio, paste0(o.list.1st, ".WAV"))
+# done.dir = file.path(dirname(i.audio), paste0(basename(i.audio), "_done"))
+# dir.create(done.dir)
+# dir.exists(done.dir)
+# file.copy(finished.files, done.dir)
+# list.files(done.dir)
+# If they all exist, you can delete them.
+# rm(finished.files)
+
+# Copy and remove uncompleted files
+unfinished.files = file.path(i.audio, paste0(diff.list, ".WAV"))
+undone.dir = file.path(dirname(i.audio), 
+                       paste0(basename(i.audio), "_undone"))
+dir.create(undone.dir)
+dir.exists(undone.dir)
+file.copy(unfinished.files, undone.dir)
+list.files(undone.dir)
+# If they all exist, you can delete them. It is probably wise to wait until 
+# process the unfinished file directory
+# rm(unfinished.files)
+
+```
 
