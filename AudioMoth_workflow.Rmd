@@ -36,15 +36,18 @@ Depends on the BirdNET CLI to allow command line running of BirdNET. Details on 
 We need to make sure file names of .wav files have this format:
 LOCATIONorARUID_YYYYMMDD_HHMMSS.WAV
 
-I wrote this R code for that:
+To rename files to this format:
+
 RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc' that can be used either with one path, or used with lapply to go through a list of directories.
 
+***Warning***  Test this on a small test directory first.  Renaming files incorectly can make them inaccessible.
+
 ```{r renamefiles}
-# Get the function for renameing loaded.
-source("C:/Users/PatrickLorch/OneDrive - SSRS/ARU_bird_callanalysis/BirdNET-Analyzer/RenameFiles.R")
+# Get the function 'rnFileWithLoc' for renaming:
+source("RenameFiles.R")
 
 # Single dir of .wav files
-i.audio = "D:/TNC AudioMoth/THG25_problem"
+i.audio = "D:/TNC AudioMoth/CBG05"
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -67,29 +70,25 @@ library(dplyr)
 
 # Path to birdnet on your computer
 birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
+
 # Single dir of .wav files
-i.audio = "D:/TNC AudioMoth/THG25_problem"
-o.results = "D:/TNC AudioMoth/Output/THG25_problem"
-# audio.folders = paste0(file.path(indir, 
-#                            "AudioMoth"), 
-#                            29:30)
-# result.folders = paste0(file.path(indir,
-#                             "results/AudioMoth"),
-#                             29:30)
+# *** Warning: *** Change things here, especially num.threads:
+i.audio = "D:/TNC AudioMoth/CBG05" # version for a folder with .wav files
+# i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
+o.dirname = dirname(i.audio)
+o.basename = basename(i.audio)
+o.results = file.path(o.dirname, "Output", o.basename)
 # species.list.path = "D:/species_list.txt"
-num.threads = 7 # out of 8 on HP main laptop, 4 on others 
+num.threads = 7 # out of 8 on my HP main laptop, 4 on others 
 con_limit = 0.1
 sens = 1
 
-
-# Generate a single command to loop through several folders:
+# Generate a single command for a single folder:
 ## NOTE: be mindful of your quotations when editing!
-all.commands <- paste0(
+run.birdnet <- paste0(
   '"', birdnet.path,
   '" --i "', i.audio,
   '" --o "', o.results,
-  # '" --i "', audio.folders,
-  # '" --o "', result.folders,
   '" --lat -1 --lon -1 --week -1 ', 
   # --slist ',
   # species.list.path,
@@ -98,34 +97,20 @@ all.commands <- paste0(
   con_limit, ' --sensitivity ', sens)
 
 # Test that one command runs
-# This works
-system(all.commands[1])
-
-
-# Loop through all commands (i.e., all audio folders) and send them to BirdNET-Analyzer
-
-# Delete old results folders first
-
-# This is how the NSNSDA folks worked through multiple folders.
-#   We would only want to do this if we can run on a fast computer or over
-#   long periods
-# Use if you swap comments for the single and multiple folder set up
-# for (i in 1:length(all.commands)) {
-#   cat('\n \n This is folder', i, 'of', length(all.commands), '\n \n')
-#   system(all.commands[i])
-# }
-
+system(run.birdnet[1])# This works for one directory
+# This works for many directories
+# ***Warning:*** This could take REALLY LONG (i.e., days of weeks)
+# to run if there are lots of dirs and files.
+# system(run.birdnet)
 
 # *** Why not use NSNSDA?
 #     It looks like the NSNSDA functions are going to fail for us.
 #     They worked for a simple example, but are failing with more 
 #     realistic examples. It may be a problem reading files from an 
-#     attached hard drive, but this is a show stopper. we don't want to 
+#     attached hard drive, but this is a show stopper. We don't want to 
 #     copy all files to the laptop to process. Matt may have had similar
 #     problems and does not use these steps
 
-# Since filepath contains the soundfile source, we will use that as RecID
-# Will try to create an equivalent verify file using Matt Toenies' methods.
 ```
 
 
@@ -142,7 +127,7 @@ library(DataEditR)
 # Variables to set each time a round of verifications is done
 highconf_prop = 0.4 # What is the lowest confidence score you want to consider for verification (0 will include all)
 bp_low = 3 # May need to increase for recordings with lots of noise
-num.threads = 4 # computer dependent (cores/2 is safe)
+num.threads = 7 # computer dependent (cores/2 is safe)
 threshold = 20 # set to detect only above a certain dB level
 
 filelist = list.files(path = o.results,
@@ -151,7 +136,8 @@ filelist = list.files(path = o.results,
                       recursive = T)
 datalist = lapply(filelist, read.csv)
 # names(datalist) = filelist
-# combine all of the rows of data from the recording periods
+
+# Combine all of the rows of data from the recording periods
 allunsorted = do.call("rbind", datalist)
 allcolumns = allunsorted[with(allunsorted, 
                               order(common_name, 
@@ -172,6 +158,7 @@ highconf = allcolumns %>%
          Time.of.detection) %>%
   filter(confidence > highconf_prop)
 highconf_spp = sort(unique(highconf$common_name))
+
 ```
 ## Validate
 
@@ -185,46 +172,61 @@ To validate using the data_editor() function, run one of the data_editor() comma
 
 1. open the appropriate sound file in Raven Lite
 2. open the sound file with your system sound app (media player, VLC, etc.)
-3. use the warblR commands below
 
 The data_editor() function will work if you are using Raven Lite to view files.  You cannot have it running when you are using R code to view and hear sound files.
 
 When you are done, click Done on the editor and write the file to the output directory where the selection (classification) files were saved for a given location and time period.  
 
-You can add records for incidental species detections either in the data_editor or later in the .csv file.
+You can add records for incidental species detections either in the data_editor or later in the Excel file.
 
 ```{r validate}
+library(openxlsx)
 # Set up a separate spreasheet for recording verifications
 # I currently prefer to work from the highconf spreadsheet and remove 
 # unconfirmed later because it keeps whatever data you want with
 # verifications
 # 
+# This will create a small verification table with just common name to start
 # highconf_spp_verifed_df <- data.frame(matrix(ncol = 3, nrow = length(highconf_spp)))
 # highconf_spp_verifed_df[,1] <- highconf_spp
 # setnames(highconf_spp_verifed_df,c("common_name",
 #                                    "reference_file_name",
 #                                    "reference_file_time"))
 
-# First option makes a wide table that data_edit is not good at managing 
-# but works well if you are exporting to an excel sheet
-highconf_verified = data.frame(allcolumns, 
+# First option below makes a wide table that data_edit is not good at 
+# managing but works well if you are exporting to an excel sheet
+
+# allcolumns_verified = data.frame(allcolumns, 
+#                                confirmed = "no",
+#                                flyover = "no",
+#                                migrant_spp = "no")
+# names(allcolumns_verified)
+# write.csv(allcolumns_verified, file.path(o.results, 
+#   "allcolumns_verified.csv"), row.names = F)
+
+highconf_verified = data.frame(highconf,
                                confirmed = "no",
                                flyover = "no",
                                migrant_spp = "no")
-# highconf_verified = data_edit(highconf_spp_verifed_df,
-highconf_verified = data_edit(highconf,
-          col_bind = list(confirmed = "no",
-                          flyover = "no",
-                          migrant_spp = "no"),
-          col_options = list(confirmed = c("yes","no"),
-                             flyover = c("yes","no"),
-                             migrant_spp = c("yes","no")),
-          viewer = "browser"
-          )
 
-# After exiting the editor, the new data should be included in highconf
+# highconf_verified = data_edit(highconf_spp_verifed_df,
+# 
+# highconf_verified = data_edit(highconf,
+#           col_bind = list(confirmed = "no",
+#                           flyover = "no",
+#                           migrant_spp = "no"),
+#           col_options = list(confirmed = c("yes","no"),
+#                              flyover = c("yes","no"),
+#                              migrant_spp = c("yes","no")),
+#           viewer = "browser"
+#           )
+
+# After exiting the editor, the new data should be included in 
+# highconf_verified
 names(highconf_verified)
-write.csv(highconf_verified, file.path(o.results, "highconf_verified.csv"), row.names = F)
+write.csv(highconf_verified, 
+          file.path(o.results, "highconf_verified_initial.csv"), 
+          row.names = F)
 
 # Excel file with data validation
 wb <- createWorkbook()
@@ -252,42 +254,49 @@ saveWorkbook(wb,
 
 # If you use Raven Lite and data_edit() methods, you can filter results 
 # and then export it.
-highconf_confirmed = highconf_verified %>%
-  filter(confirmed == "yes")
-write.csv(highconf_confirmed, file.path(o.results, "highconf_confirmed.csv"), row.names = F)
+# highconf_confirmed = highconf_verified %>%
+#   filter(confirmed == "yes")
+# write.csv(highconf_confirmed, file.path(o.results, "highconf_confirmed.csv"), row.names = F)
 ```
 
 ## View spectrogram
 
 One simple way to do this, if it is not needed all the time is to just use a row to generate a spectrogram.
 
-May be able to use warbleR::read_wave to read in multiple segments and then plot them.
+* Future wish:  May be able to use warbleR::read_wave to read in multiple segments and then plot them.
+
+The wrapper function spec_listen() has the following things you can set:
+
+* df = sel_table is what table to use to get sound file from
+* sel_row = sel_file_row is the row number to get file and time info from
+* buf = 0.25 determines how much (seconds) before and after of sound to plot
+* freqlim = c(0, 10) determines how much of the frequency spectrum to show
 
 ```{r viewspec}
 sel_table = highconf_verified
-buf = 0.25 # seconds of buffer around start and end
-
-# One row at a time
-sel_file_row = 618
-focal_row = sel_table[sel_file_row,]
-
-sel_wav = readWave(focal_row$filepath,
-                   from = focal_row$start - buf,
-                   to = focal_row$end + buf,
-                   units = "seconds")
-spectro(sel_wav, 
-        main = paste(focal_row$common_name, focal_row$confidence), 
-        listen = T)
 
 # Function version
 # Calls seewave::spectro using sound file and start/end points from
 # one row of a selection table.
-source("C:/Users/PatrickLorch/OneDrive - SSRS/ARU_bird_callanalysis/BirdNET-Analyzer/spec_listen.R")
+source("SpecListen.R")
 
-spec_listen(df = sel_table, sel_row = 2580)
+spec_listen(df = sel_table, sel_row = 248)
 
+# One row at a time to see how function works
+# buf = 0.25 # seconds of buffer around start and end
+# 
+# sel_file_row = 618
+# focal_row = sel_table[sel_file_row,]
+# 
+# sel_wav = readWave(focal_row$filepath,
+#                    from = focal_row$start - buf,
+#                    to = focal_row$end + buf,
+#                    units = "seconds")
+# spectro(sel_wav, 
+#         main = paste(focal_row$common_name, focal_row$confidence), 
+#         listen = T)
 # Add constraints to make a better spectrogram
-spectro(sel_wav, tlim = 0:1.7, listen = T)
+# spectro(sel_wav, tlim = 0:1.7, listen = T)
 
 ```
 
@@ -344,6 +353,10 @@ highconf_verified_sgcnetc_rows = highconf_verified %>%
   filter(common_name %in% vetall) %>%
   select(row_id, common_name, confidence)
 
+source("SpecListen.R")
+
+spec_listen(df = sel_table, sel_row = 5034)
+
 ```
 
 
@@ -352,10 +365,16 @@ highconf_verified_sgcnetc_rows = highconf_verified %>%
 Once you are done validating, come back here if you want to use R to generate a species list.
 
 ```{r validated}
+# If you used the Excel file method, you can come here.
 highconf_verified_final =  read_excel("D:/TNC AudioMoth/Output/THG25_problem/highconf_verified.xlsx")
 
 highconf_verified_final_confirmed = highconf_verified_final %>%
   filter(confirmed == "yes")
+
+# If you used the data_editor method, do this here after checking the 
+# species of special interest
+# highconf_verified_final_confirmed = highconf_confirmed
+
 write.csv(highconf_verified_final_confirmed, file.path(o.results, "highconf_verified_final_confirmed.csv"), row.names = F)
 
 ```
