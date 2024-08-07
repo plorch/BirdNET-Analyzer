@@ -282,6 +282,10 @@ source("SpecListen.R")
 
 spec_listen(df = sel_table, sel_row = 248)
 
+# To save the spectrogram, try this with a name that is descriptive
+# For example, 'common name_confidence_row number.pdf'
+dev.print(pdf, file.path(o.results, "Titmouse.pdf"))
+
 # One row at a time to see how function works
 # buf = 0.25 # seconds of buffer around start and end
 # 
