@@ -47,7 +47,7 @@ RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc'
 source("RenameFiles.R")
 
 # Single dir of .wav files
-i.audio = "D:/TNC AudioMoth/CBG05"
+i.audio = "D:/TNC AudioMoth/CBG12"
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -73,7 +73,7 @@ birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
-i.audio = "D:/TNC AudioMoth/CBG05_undone" # version for a folder with .wav files
+i.audio = "D:/TNC AudioMoth/CBG12" # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -162,7 +162,8 @@ highconf = allcolumns %>%
 highconf_spp = sort(unique(highconf$common_name))
 
 ```
-## Validate
+
+## Verification
 
 There are three options for verification:
 
@@ -181,7 +182,9 @@ When you are done, click Done on the editor and write the file to the output dir
 
 You can add records for incidental species detections either in the data_editor or later in the Excel file.
 
-```{r validate}
+When you are done verifying, save the Excel file or write highconf_confirmed out.
+
+```{r verify}
 library(openxlsx)
 # Set up a separate spreasheet for recording verifications
 # I currently prefer to work from the highconf spreadsheet and remove 
@@ -282,7 +285,7 @@ sel_table = highconf_verified
 # one row of a selection table.
 source("SpecListen.R")
 
-spec_listen(df = sel_table, sel_row = 248)
+spec_listen(df = sel_table, sel_row = 1662)
 
 # To save the spectrogram, use this with a name that is descriptive
 # For example, 'common name_confidence_row number.pdf'
@@ -353,13 +356,15 @@ sgcn <- read_excel("SGCNbirds.xlsx")
 #create a list of species on the state's Fully Protected list
 fp <- c("Peregrine Falcon","Brown Pelican","Black Rail","Ridgway's Rail","California Condor","Least Tern","Golden Eagle","Sandhill Crane","Bald Eagle","Trumpeter Swan","White-tailed Kite")
 # create a full list of species we want to validate even when BirdNET identifies them at lower confidence
+# Species of interes to SSRS
+pif_ssrs = c("Pinyon Jay")
 vetall <- c( # species on the SGCN list
   sgcn$common_name,
   # fully protected species that aren't also SGCN
   fp,
   # non-native species--(currently excluding Wild Turkey, European Starling, House Sparrow, Rock Dove, Eurasian Collared-Dove, Chukar, and most other game birds). Whenever a new non-native species begins to appear in California or is a priority for surveillance, it should be added to this list.
   "African Collared-Dove","Barred Owl","Pin-tailed Whydah", "Rose-ringed Parakeet", "Monk Parakeet", "Mute Swan","Common Cuckoo", "Scaly-breasted Munia", "Japanese White-eye", "Black Swan","Egyptian Goose","European Goldfinch", "Mandarin Duck","Red-crowned Amazon","Red-whiskered Bulbul"
-)
+, pif_ssrs)
 
 highconf_verified_sgcnetc_rows = highconf_verified %>%
   mutate(row_id = row_number()) %>%
