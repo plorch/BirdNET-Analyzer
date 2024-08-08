@@ -73,7 +73,7 @@ birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
-i.audio = "D:/TNC AudioMoth/CBG05" # version for a folder with .wav files
+i.audio = "D:/TNC AudioMoth/CBG05_undone" # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -98,6 +98,8 @@ run.birdnet <- paste0(
 
 # Test that one command runs
 system(run.birdnet[1])# This works for one directory
+# To get elapsed time estimates try
+system.time({ system(run.birdnet[1]) })
 # This works for many directories
 # ***Warning:*** This could take REALLY LONG (i.e., days of weeks)
 # to run if there are lots of dirs and files.
@@ -282,9 +284,9 @@ source("SpecListen.R")
 
 spec_listen(df = sel_table, sel_row = 248)
 
-# To save the spectrogram, try this with a name that is descriptive
+# To save the spectrogram, use this with a name that is descriptive
 # For example, 'common name_confidence_row number.pdf'
-dev.print(pdf, file.path(o.results, "Titmouse.pdf"))
+dev.print(pdf, file.path(o.results, "Titmouse_8445_248.pdf"))
 
 # One row at a time to see how function works
 # buf = 0.25 # seconds of buffer around start and end
@@ -306,7 +308,7 @@ dev.print(pdf, file.path(o.results, "Titmouse.pdf"))
 
 ## Validation
 
-For this step, you will open a version of the selection table (either in Excel or in the data_editor) and use it to look at spectrograms and listen to the selected sound bite with either Raven Lite or the spec_listen function here. Then follow the instructions below:
+For this step, you will open a version of the selection table (either in Excel or in the data_editor) and use it to look at spectrograms and listen to the selected sound bite with either Raven Lite or the spec_listen function here. Then follow the detailed instructions below:
 
 ### CDFW guidelines
 
@@ -327,6 +329,13 @@ Similar to https://storymaps.arcgis.com/collections/a074c5321dd64ca2902ba72c7012
 * Flyovers: When validating detections, you may rarely encounter "flyovers", birds that are simply flying overhead past a location and not actually inhabiting the landscape or the airspace above it. If you hear that each subsequent sound from a bird is progressively louder or quieter, you should consider the bird a flyover, because it may have never perched or occupied the site. If your ONLY detection for that species is a flyover, type "yes" in the "Flyover_only?" column. However, if you have also heard non-flyover sounds of that species at that site, leave the column as "no" since the species is likely occupying the site. Flyovers are typically aquatic birds in transit over unsuitable habitat. Often there is only one or a few detections over a few seconds or minutes since the bird is just passing through. In general, aerial foragers like swallows and swifts should NOT be considered flyovers despite often being detected in passing flight, because they are actively occupying the airspace above a point (for hunting or other purposes), rather than just passing over. Hummingbirds are often heard in flight, but should not be considered flyovers due to their small home ranges. 
 
 * Migrants: You may rarely encounter species that are likely to be migrants, as opposed to potential breeding species. In general, it will only be possible to tell that a detection is of a migrant if the recording location lies well outside the species' range during that time of year. (For example, we detected Townsend's warbler in late May in Santa Clara county, but this species breeds in Oregon and further north, so it was likely a later migrant.) Consult with Matt Toenies or your crew lead before deciding that a species detection represents a migrant. If it does, type "yes" in the "Migrant_species?" column.
+
+
+#### Confirming model classifications
+
+Enter values for confirmed, flyover, and migrant if you confirm a classification.  Save the spectrogram if you want.
+
+Save the selection table.
 
 ### SGCN, protected, and vagrants of interest
 
@@ -356,6 +365,7 @@ highconf_verified_sgcnetc_rows = highconf_verified %>%
   mutate(row_id = row_number()) %>%
   filter(common_name %in% vetall) %>%
   select(row_id, common_name, confidence)
+View(highconf_verified_sgcnetc_rows)
 
 source("SpecListen.R")
 
@@ -384,14 +394,14 @@ write.csv(highconf_verified_final_confirmed, file.path(o.results, "highconf_veri
 ```
 
 
-## Move analyzed and restart
+## Move unanalyzed sound files and re-run the model
 
 If the computer shuts down during an run through the BirdNET model, you can use these methods to move files around and restart the model on just the unprocessed files.
 
-* Find what was completed
+* Find what was not completed
 * copy them out someplace
 * check they copied
-* 
+* re-run BirdNET and verify
 
 ```{r partial}
 # Find file identifiers from completed results files ind input files
