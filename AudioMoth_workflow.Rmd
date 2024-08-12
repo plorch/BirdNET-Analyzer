@@ -47,7 +47,7 @@ RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc'
 source("RenameFiles.R")
 
 # Single dir of .wav files
-i.audio = "D:/TNC AudioMoth/CBG12"
+i.audio = file.path("D:","TNC AudioMoth","CBG19")
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -73,7 +73,7 @@ birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
-i.audio = "D:/TNC AudioMoth/CBG12" # version for a folder with .wav files
+i.audio = file.path("D:","TNC AudioMoth","CBG19") # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -100,6 +100,9 @@ run.birdnet <- paste0(
 system(run.birdnet[1])# This works for one directory
 # To get elapsed time estimates try
 system.time({ system(run.birdnet[1]) })
+# for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
+# very long for certain groups of files. It may have been while CPU was busy.
+
 # This works for many directories
 # ***Warning:*** This could take REALLY LONG (i.e., days of weeks)
 # to run if there are lots of dirs and files.
@@ -228,10 +231,10 @@ highconf_verified = data.frame(highconf,
 
 # After exiting the editor, the new data should be included in 
 # highconf_verified
-names(highconf_verified)
-write.csv(highconf_verified, 
-          file.path(o.results, "highconf_verified_initial.csv"), 
-          row.names = F)
+# names(highconf_verified)
+# write.csv(highconf_verified, 
+#           file.path(o.results, "highconf_verified_initial.csv"), 
+#           row.names = F)
 
 # Excel file with data validation
 wb <- createWorkbook()
@@ -254,7 +257,9 @@ halignStyle = createStyle(halign = "right")
 setColWidths(wb, 1, col = c(1, 4),
              widths = c(63, 20))
 saveWorkbook(wb, 
-             file.path(o.results, "highconf_verified.xlsx"),
+             file.path(o.results,
+                       paste0(basename(o.results), 
+                              "_highconf_verified.xlsx")),
              overwrite = TRUE)
 
 # If you use Raven Lite and data_edit() methods, you can filter results 
@@ -278,6 +283,9 @@ The wrapper function spec_listen() has the following things you can set:
 * freqlim = c(0, 10) determines how much of the frequency spectrum to show
 
 ```{r viewspec}
+library(tuneR)
+library(seewave)
+
 sel_table = highconf_verified
 
 # Function version
@@ -285,7 +293,7 @@ sel_table = highconf_verified
 # one row of a selection table.
 source("SpecListen.R")
 
-spec_listen(df = sel_table, sel_row = 1662)
+spec_listen(df = sel_table, sel_row = 175)
 
 # To save the spectrogram, use this with a name that is descriptive
 # For example, 'common name_confidence_row number.pdf'
