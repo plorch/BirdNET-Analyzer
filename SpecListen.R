@@ -2,6 +2,7 @@
 ## row of a selection table
 library(tuneR)
 library(seewave)
+
 spec_listen = function(df = sel_table, sel_row = sel_file_row, 
                        buf = 0.25, freqlim = c(0, 10))
 {
@@ -13,8 +14,13 @@ spec_listen = function(df = sel_table, sel_row = sel_file_row,
                      to = focal_row$end + buf,
                      units = "seconds")
   spectro(sel_wav, 
-          main = paste(focal_row$common_name, focal_row$confidence),
+          main = paste(basename(focal_row$filepath),#  "\n",
+                       paste0("row: ", sel_row),
+                       focal_row$common_name,
+                       focal_row$confidence,
+                       sep = ", "),
           palette = reverse.gray.colors.2,
+          scale = F,
           noisereduction = 1,
           flim = freqlim,
           listen = T)
