@@ -77,7 +77,7 @@ birdnet.path = "C:/Users/COO/AppData/Local/Programs/BirdNET-Analyzer/BirdNET-Ana
 # *** Warning: *** Change things here, especially num.threads:
 i.audio = file.path("D:","MDLT AudioMoth", 
                     "FreemanCanyonSpring", 
-                    "FC1", "FC1_20221016") # version for a folder with .wav files
+                    "FC1", "FC1_20221016_undone") # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -138,6 +138,15 @@ highconf_prop = 0.4 # What is the lowest confidence score you want to consider f
 bp_low = 3 # May need to increase for recordings with lots of noise
 num.threads = 7 # computer dependent (cores/2 is safe)
 threshold = 20 # set to detect only above a certain dB level
+# Adding this here in case you forgot to do this while o.results for the 
+# directory was still loaded. Uncomment and change this to point to relevant 
+# output dir.
+# o.results = file.path("D:", 
+#                       "MDLT AudioMoth", 
+#                       "FreemanCanyonSpring", 
+#                       "FC1",
+#                       "Output",
+#                       "FC1_202308")
 
 filelist = list.files(path = o.results,
                       pattern="*.csv",
@@ -383,6 +392,10 @@ highconf_verified_sgcnetc_rows = highconf_verified %>%
   filter(common_name %in% vetall) %>%
   select(row_id, common_name, confidence)
 View(highconf_verified_sgcnetc_rows)
+write.csv(highconf_verified_sgcnetc_rows, 
+          file.path(o.results, 
+                    paste0(basename(o.results), 
+                           "highconf_verified_sgcnetc_rows.csv")))
 
 source("SpecListen.R")
 
