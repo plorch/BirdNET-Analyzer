@@ -1,0 +1,455 @@
+---
+title: "AudioMoth_workflow"
+author: "Patrick D. lorch"
+date: "2024-08-05"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# AudioMoth workflow
+
+Some important steps in this workflow are based on:
+https://github.com/nationalparkservice/NSNSDAcoustics/
+
+## Example from NSNDAcoustics README.md
+
+https://rdrr.io/github/nationalparkservice/NSNSDAcoustics/f/README.md
+(I think this has moved from rdrr.io to github location above.)
+
+The functions in this package end up not being useful for verification, since they are designed around specific recorders. I have developed my own workflow steps to replace some products produced by these functions.
+
+## CDFW workflow and advice
+
+Please read through the CDFW guide to help you decide on how to verify species and come up with the most comprehensive list of verified species.
+
+https://storymaps.arcgis.com/collections/a074c5321dd64ca2902ba72c7012ae64?item=3
+
+## Setup and install
+
+This workflow assumes you have installed the latest (v > 2.4) in the folder where this project resides.
+
+Depends on the BirdNET CLI to allow command line running of BirdNET. Details on above webpage.
+
+We need to make sure file names of .wav files have this format:
+LOCATIONorARUID_YYYYMMDD_HHMMSS.WAV
+
+To rename files to this format:
+
+RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc' that can be used either with one path, or used with lapply to go through a list of directories.
+
+***Warning***  Test this on a small test directory first.  Renaming files incorectly can make them inaccessible.
+
+```{r renamefiles}
+# Get the function 'rnFileWithLoc' for renaming:
+source("RenameFiles.R")
+
+# Single dir of .wav files
+i.audio = file.path("D:","TNC AudioMoth","CO05")
+
+# Rename files to have location info
+rnFileWithLoc(i.audio)
+```
+
+## Run Birdnet
+
+This works on a directory containing .wav files.
+
+The verification step is designed to do one species at a time.
+
+The verification system is nice, but it fails with undecipherable errors.
+
+```{r setup}
+library(dplyr)
+
+# Initialize important variables such as your BirdNET analyzer path, folders, and other command line arguments:
+
+# birdnet.version = 'v2.4' # Not used.Currently in the model field
+
+# Path to birdnet on your computer
+birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
+
+# Single dir of .wav files
+# *** Warning: *** Change things here, especially num.threads:
+i.audio = file.path("D:","TNC AudioMoth","CO05") # version for a folder with .wav files
+# i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
+o.dirname = dirname(i.audio)
+o.basename = basename(i.audio)
+o.results = file.path(o.dirname, "Output", o.basename)
+# species.list.path = "D:/species_list.txt"
+num.threads = 7 # out of 8 on my HP main laptop, 4 on others 
+con_limit = 0.1
+sens = 1
+
+# Generate a single command for a single folder:
+## NOTE: be mindful of your quotations when editing!
+run.birdnet <- paste0(
+  '"', birdnet.path,
+  '" --i "', i.audio,
+  '" --o "', o.results,
+  '" --lat -1 --lon -1 --week -1 ', 
+  # --slist ',
+  # species.list.path,
+  ' --rtype "r" --threads ',
+  num.threads, ' --min_conf ', 
+  con_limit, ' --sensitivity ', sens)
+
+# Test that one command runs
+# system(run.birdnet[1])# This works for one directory
+# To get elapsed time estimates try
+system.time({ system(run.birdnet[1]) })
+# for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
+# very long for certain groups of files. It may have been while CPU was busy.
+
+# This works for many directories
+# ***Warning:*** This could take REALLY LONG (i.e., days of weeks)
+# to run if there are lots of dirs and files.
+# system(run.birdnet)
+
+# *** Why not use NSNSDA?
+#     It looks like the NSNSDA functions are going to fail for us.
+#     They worked for a simple example, but are failing with more 
+#     realistic examples. It may be a problem reading files from an 
+#     attached hard drive, but this is a show stopper. We don't want to 
+#     copy all files to the laptop to process. Matt may have had similar
+#     problems and does not use these steps
+
+```
+
+
+## Set up to verify classification
+
+Read in BirdNET results .csv files from the recording periods from each site (you may want to remove the first and last results files from the folder beforehand, for simplicity since these files represent only partial recording periods). Make sure these are the only .csv files in this folder because this line will read every available csv file there.
+
+
+```{r verifysetup}
+library(dplyr)
+library(lubridate)
+library(DataEditR)
+
+# Variables to set each time a round of verifications is done
+highconf_prop = 0.4 # What is the lowest confidence score you want to consider for verification (0 will include all)
+bp_low = 3 # May need to increase for recordings with lots of noise
+num.threads = 7 # computer dependent (cores/2 is safe)
+threshold = 20 # set to detect only above a certain dB level
+
+filelist = list.files(path = o.results,
+                      pattern="*.csv",
+                      full.names = T,
+                      recursive = T)
+datalist = lapply(filelist, read.csv)
+# names(datalist) = filelist
+
+# Combine all of the rows of data from the recording periods
+allunsorted = do.call("rbind", datalist)
+allcolumns = allunsorted[with(allunsorted, 
+                              order(common_name, 
+                                    filepath, 
+                                    -confidence)), ]
+
+# add a column to convert the seconds column to hours, minutes, and seconds, so it's easier to validate detections later
+allcolumns$Time.of.detection = seconds_to_period(allcolumns$start)
+names(allcolumns)
+
+# Remove unneeded columns to make handling data easier
+# These should be modified if you want to track specific BirdNET parameter setting
+highconf = allcolumns %>%
+  select(filepath, 
+         start, end,
+         common_name, 
+         confidence,
+         Time.of.detection) %>%
+  filter(confidence > highconf_prop)
+highconf_spp = sort(unique(highconf$common_name))
+
+```
+
+## Verification
+
+There are three options for verification:
+
+1. Use the data.frame that has all the model data 
+2. Use a subset of columns to retain that you define
+3. Create a small sheet from just the species list
+
+To validate using the data_editor() function, run one of the data_editor() commands below and either:
+
+1. open the appropriate sound file in Raven Lite
+2. open the sound file with your system sound app (media player, VLC, etc.)
+
+The data_editor() function will work if you are using Raven Lite to view files.  You cannot have it running when you are using R code to view and hear sound files.
+
+When you are done, click Done on the editor and write the file to the output directory where the selection (classification) files were saved for a given location and time period.  
+
+You can add records for incidental species detections either in the data_editor or later in the Excel file.
+
+When you are done verifying, save the Excel file or write highconf_confirmed out.
+
+```{r verify}
+library(openxlsx)
+# Set up a separate spreasheet for recording verifications
+# I currently prefer to work from the highconf spreadsheet and remove 
+# unconfirmed later because it keeps whatever data you want with
+# verifications
+# 
+# This will create a small verification table with just common name to start
+# highconf_spp_verifed_df <- data.frame(matrix(ncol = 3, nrow = length(highconf_spp)))
+# highconf_spp_verifed_df[,1] <- highconf_spp
+# setnames(highconf_spp_verifed_df,c("common_name",
+#                                    "reference_file_name",
+#                                    "reference_file_time"))
+
+# First option below makes a wide table that data_edit is not good at 
+# managing but works well if you are exporting to an excel sheet
+
+# allcolumns_verified = data.frame(allcolumns, 
+#                                confirmed = "no",
+#                                flyover = "no",
+#                                migrant_spp = "no")
+# names(allcolumns_verified)
+# write.csv(allcolumns_verified, file.path(o.results, 
+#   "allcolumns_verified.csv"), row.names = F)
+
+highconf_verified = data.frame(highconf,
+                               confirmed = "no",
+                               flyover = "no",
+                               migrant_spp = "no")
+
+# highconf_verified = data_edit(highconf_spp_verifed_df,
+# 
+# highconf_verified = data_edit(highconf,
+#           col_bind = list(confirmed = "no",
+#                           flyover = "no",
+#                           migrant_spp = "no"),
+#           col_options = list(confirmed = c("yes","no"),
+#                              flyover = c("yes","no"),
+#                              migrant_spp = c("yes","no")),
+#           viewer = "browser"
+#           )
+
+# After exiting the editor, the new data should be included in 
+# highconf_verified
+# names(highconf_verified)
+# write.csv(highconf_verified, 
+#           file.path(o.results, "highconf_verified_initial.csv"), 
+#           row.names = F)
+
+# Excel file with data validation
+wb <- createWorkbook()
+addWorksheet(wb, "Sheet 1")
+addWorksheet(wb, "Sheet 2")
+
+writeDataTable(wb, sheet = 1, x = highconf_verified)
+writeData(wb, sheet = 2, x = c("no", "yes"))
+
+dataValidation(wb, 1, col = 7:9, 
+               rows = 2:length(highconf_verified[,1]),
+               type = "list", 
+               value = "'Sheet 2'!$A$1:$A$2")
+conditionalFormatting(wb, 1, col = 5, 
+               rows = 2:length(highconf_verified[,1]),
+               type = "colorScale", # "expression",
+               rule = c(0, 1), # ">= 0.95",
+               style = c("red", "green")) # "green")
+halignStyle = createStyle(halign = "right")
+setColWidths(wb, 1, col = c(1, 4),
+             widths = c(63, 20))
+saveWorkbook(wb, 
+             file.path(o.results,
+                       paste0(basename(o.results), 
+                              "_highconf_verified.xlsx")),
+             overwrite = TRUE)
+
+# If you use Raven Lite and data_edit() methods, you can filter results 
+# and then export it.
+# highconf_confirmed = highconf_verified %>%
+#   filter(confirmed == "yes")
+# write.csv(highconf_confirmed, file.path(o.results, "highconf_confirmed.csv"), row.names = F)
+```
+
+## View spectrogram
+
+One simple way to do this, if it is not needed all the time is to just use a row to generate a spectrogram.
+
+* Future wish:  May be able to use warbleR::read_wave to read in multiple segments and then plot them.
+
+The wrapper function spec_listen() has the following things you can set:
+
+* df = sel_table is what table to use to get sound file from
+* sel_row = sel_file_row is the row number to get file and time info from
+* buf = 0.25 determines how much (seconds) before and after of sound to plot
+* freqlim = c(0, 10) determines how much of the frequency spectrum to show
+
+```{r viewspec}
+library(tuneR)
+library(seewave)
+
+
+sel_table = highconf_verified
+
+# Function version
+# Calls seewave::spectro using sound file and start/end points from
+# one row of a selection table.
+source("SpecListen.R")
+
+spec_listen(df = sel_table, sel_row = 175)
+
+# To save the spectrogram, use this with a name that is descriptive
+# For example, 'common name_confidence_row number.pdf'
+dev.print(pdf, file.path(o.results, "Titmouse_8445_248.pdf"))
+
+# One row at a time to see how function works
+# buf = 0.25 # seconds of buffer around start and end
+# 
+# sel_file_row = 618
+# focal_row = sel_table[sel_file_row,]
+# 
+# sel_wav = readWave(focal_row$filepath,
+#                    from = focal_row$start - buf,
+#                    to = focal_row$end + buf,
+#                    units = "seconds")
+# spectro(sel_wav, 
+#         main = paste(focal_row$common_name, focal_row$confidence), 
+#         listen = T)
+# Add constraints to make a better spectrogram
+# spectro(sel_wav, tlim = 0:1.7, listen = T)
+
+```
+
+## Validation
+
+For this step, you will open a version of the selection table (either in Excel or in the data_editor) and use it to look at spectrograms and listen to the selected sound bite with either Raven Lite or the spec_listen function here. Then follow the detailed instructions below:
+
+### CDFW guidelines
+
+Similar to https://storymaps.arcgis.com/collections/a074c5321dd64ca2902ba72c7012ae64?item=3
+
+* Depending on the version of BirdNET used, the spreadsheet may include species that are far outside known native and non-native ranges, such as species that live exclusively in Eurasia, South America, or eastern North America (check eBird when unsure if a species may irregularly occur in your area). You do not need to validate these species.
+
+* Validation:  To validate a species, begin with the highest confidence detection in the first recording in the list. Open the recording file (see "Begin.File" column), and use Time_of_detection column to view the hour:minute:second of the detection. Click to navigate to this time in the sound file. In VLC media player and likely other applications, you can also hover the mouse over the time progress bar at the bottom of the screen, and use the mouse's scroll function to navigate to the time more precisely. Listen carefully to check whether the species is actually present. If it is, type "yes" in "Confirmed?" column. Otherwise leave it as "no". A single confirmed sound is sufficient for you to confirm the species for the site, and you are done with that species. However, if you find one of these high-confidence detections to be a misidentification, you may not enter "yes" unless you have checked all of the recordings for which it is purportedly present. A high-confidence species can sometimes be correctly identified in one recording but misidentified in another (this is especially common, but not limited to, sites where northern mockingbirds are mimicking local species). So this step will help minimize accidental inclusion of those misidentifications and maintain statistical rigor.
+
+* If a species is identified multiple times at a site, you should use your best judgment to determine how many of the other high-confidence detections you validate before deciding that the species was not present at all. For example, say BirdNET produces dozens of flammulated owl detections over .90 confidence. If you listen to several detections and determine they are actually barking dogs, it may not be necessary to check every single high-confidence Flammulated Owl detection. (and checking every RECORDING is only required if the species is (1) misidentified above the confidence threshold but also (2) known to be present in at least one recording.) But in another example, validation has revealed that BirdNET can misidentify Great Horned Owl calls as Band-tailed Pigeon with high confidence. However, later on in the same recording (in the morning when the pigeon would actually be vocal), there have been high-confidence, verified identifications of the pigeon. In that case, you would check every recording in the list for the pigeon, to separate correct and incorrect identifications. Similarly, a site in potential flammulated owl range could have both misidentified barking dogs AND actual flammulated owl calls, so in that case you should not just give up after checking a couple of identifications. Paying attention to species range, habitat, and timing of purported detections is helpful in determining how many to check before concluding they are likely all misidentifications. For example, a marbled murrelet detection turns out to be a fragment of a hermit thrush song in one recording. If there are many murrelet detections for the site (and it's well outside possible murrelet range), you could skip checking more detections from around the same time as the misidentification, and instead prioritize checking the highest-confidence detections on a few other recording dates, just to be sure before you decide to leave "no" in the "Confirmed?" column.  
+
+* When you find misidentifications in the high confidence species spreadsheet, go to the "BirdNETmisidentifications.xlsx" file and enter data for all columns. You do not need to do so for misidentifications resulting from northern mockingbirds mimicking other birds, since this can be very common at sites where they are present. You also do not need to document the species you did not validate (the ones that are far outside their ranges).
+
+* Repeat the validation process above for each species in the spreadsheet. When you proceed to a new species and it has detections in a recording you already have open, for convenience you can just navigate to the time of detection in that recording. (In all other cases, you would go to the first recording in the list.) 
+
+* Incidentals: When validating you may hear other species that are not in the results spreadsheet because BirdNET and/or our subsetting process missed them. For each of these cases, create an additional row with the appropriate information after the last row in the spreadsheet. It is best to copy species and recording names from the Console area below and paste them into the spreadsheet. Any typos, even an extra space after a name, will result in that row having erroneous data. Every combination of species/recording needs its own row. For example, when checking one of BirdNET's detections you hear a mourning dove but notice the species is not in the spreadsheet. You add a new row with all required information, then later hear mourning dove in two additional recordings, so you add two more rows. Do not spend time actively trying to find additional species in the recordings. The goal is simply to have a record of any additional species you happened to hear throughout the validation process.
+
+* Flyovers: When validating detections, you may rarely encounter "flyovers", birds that are simply flying overhead past a location and not actually inhabiting the landscape or the airspace above it. If you hear that each subsequent sound from a bird is progressively louder or quieter, you should consider the bird a flyover, because it may have never perched or occupied the site. If your ONLY detection for that species is a flyover, type "yes" in the "Flyover_only?" column. However, if you have also heard non-flyover sounds of that species at that site, leave the column as "no" since the species is likely occupying the site. Flyovers are typically aquatic birds in transit over unsuitable habitat. Often there is only one or a few detections over a few seconds or minutes since the bird is just passing through. In general, aerial foragers like swallows and swifts should NOT be considered flyovers despite often being detected in passing flight, because they are actively occupying the airspace above a point (for hunting or other purposes), rather than just passing over. Hummingbirds are often heard in flight, but should not be considered flyovers due to their small home ranges. 
+
+* Migrants: You may rarely encounter species that are likely to be migrants, as opposed to potential breeding species. In general, it will only be possible to tell that a detection is of a migrant if the recording location lies well outside the species' range during that time of year. (For example, we detected Townsend's warbler in late May in Santa Clara county, but this species breeds in Oregon and further north, so it was likely a later migrant.) Consult with Matt Toenies or your crew lead before deciding that a species detection represents a migrant. If it does, type "yes" in the "Migrant_species?" column.
+
+
+#### Confirming model classifications
+
+Enter values for confirmed, flyover, and migrant if you confirm a classification.  Save the spectrogram if you want.
+
+Save the selection table.
+
+### SGCN, protected, and vagrants of interest
+
+* Read in CDFW's list of Species in Greatest Conservation Need. We will give these species special attention to increase our chances of detecting them
+
+* Add Fully protected species and vagrants of concern
+
+* Use highconf_verified_sgcnetc_rows to go through your selection table and verify any species of special interest, if they are present. Select confirmed = "yes" in the original selection table.
+
+```{r sgcnbirds}
+library(readxl)
+library(dplyr)
+
+sgcn <- read_excel("SGCNbirds.xlsx")
+#create a list of species on the state's Fully Protected list
+fp <- c("Peregrine Falcon","Brown Pelican","Black Rail","Ridgway's Rail","California Condor","Least Tern","Golden Eagle","Sandhill Crane","Bald Eagle","Trumpeter Swan","White-tailed Kite")
+# create a full list of species we want to validate even when BirdNET identifies them at lower confidence
+# Species of interes to SSRS
+pif_ssrs = c("Pinyon Jay")
+vetall <- c( # species on the SGCN list
+  sgcn$common_name,
+  # fully protected species that aren't also SGCN
+  fp,
+  # non-native species--(currently excluding Wild Turkey, European Starling, House Sparrow, Rock Dove, Eurasian Collared-Dove, Chukar, and most other game birds). Whenever a new non-native species begins to appear in California or is a priority for surveillance, it should be added to this list.
+  "African Collared-Dove","Barred Owl","Pin-tailed Whydah", "Rose-ringed Parakeet", "Monk Parakeet", "Mute Swan","Common Cuckoo", "Scaly-breasted Munia", "Japanese White-eye", "Black Swan","Egyptian Goose","European Goldfinch", "Mandarin Duck","Red-crowned Amazon","Red-whiskered Bulbul"
+, pif_ssrs)
+
+highconf_verified_sgcnetc_rows = highconf_verified %>%
+  mutate(row_id = row_number()) %>%
+  filter(common_name %in% vetall) %>%
+  select(row_id, common_name, confidence)
+View(highconf_verified_sgcnetc_rows)
+
+source("SpecListen.R")
+
+spec_listen(df = sel_table, sel_row = 11253)
+
+```
+
+
+### Generating species list
+
+Once you are done validating, come back here if you want to use R to generate a species list.
+
+```{r validated}
+# If you used the Excel file method, you can come here.
+highconf_verified_final =  read_excel("D:/TNC AudioMoth/Output/THG25_problem/highconf_verified.xlsx")
+
+highconf_verified_final_confirmed = highconf_verified_final %>%
+  filter(confirmed == "yes")
+
+# If you used the data_editor method, do this here after checking the 
+# species of special interest
+# highconf_verified_final_confirmed = highconf_confirmed
+
+write.csv(highconf_verified_final_confirmed, file.path(o.results, "highconf_verified_final_confirmed.csv"), row.names = F)
+
+```
+
+
+## Move unanalyzed sound files and re-run the model
+
+If the computer shuts down during an run through the BirdNET model, you can use these methods to move files around and restart the model on just the unprocessed files.
+
+* Find what was not completed
+* copy them out someplace
+* check they copied
+* re-run BirdNET and verify
+
+```{r partial}
+# Find file identifiers from completed results files ind input files
+# Find which ones were not processed
+o.list = list.files(o.results)
+o.list.1st = sapply(strsplit(o.list, "\\."), "[", 1 )
+i.list = list.files(i.audio)
+i.list.1st = sapply(strsplit(i.list, "\\."), "[", 1 )
+diff.list = setdiff(i.list.1st, o.list.1st)
+
+# Copy and remove completed files
+# This will screw up the selection table file references unless you copy
+# all the files back into the original directory and combine the selection
+# tables.
+# finished.files = file.path(i.audio, paste0(o.list.1st, ".WAV"))
+# done.dir = file.path(dirname(i.audio), paste0(basename(i.audio), "_done"))
+# dir.create(done.dir)
+# dir.exists(done.dir)
+# file.copy(finished.files, done.dir)
+# list.files(done.dir)
+# If they all exist, you can delete them.
+# rm(finished.files)
+
+# Copy and remove uncompleted files
+unfinished.files = file.path(i.audio, paste0(diff.list, ".WAV"))
+undone.dir = file.path(dirname(i.audio), 
+                       paste0(basename(i.audio), "_undone"))
+dir.create(undone.dir)
+dir.exists(undone.dir)
+file.copy(unfinished.files, undone.dir)
+list.files(undone.dir)
+# If they all exist, you can delete them. It is probably wise to wait until 
+# process the unfinished file directory
+# rm(unfinished.files)
+
+```
+
