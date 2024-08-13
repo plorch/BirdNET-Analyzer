@@ -47,7 +47,9 @@ RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc'
 source("RenameFiles.R")
 
 # Single dir of .wav files
-i.audio = file.path("D:","TNC AudioMoth","CBG19")
+i.audio = file.path("D:","MDLT AudioMoth", 
+                    "FreemanCanyonSpring", 
+                    "FC1", "FC1_20221016")
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -69,11 +71,13 @@ library(dplyr)
 # birdnet.version = 'v2.4' # Not used.Currently in the model field
 
 # Path to birdnet on your computer
-birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
+birdnet.path = "C:/Users/COO/AppData/Local/Programs/BirdNET-Analyzer/BirdNET-Analyzer.exe"
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
-i.audio = file.path("D:","TNC AudioMoth","CBG19") # version for a folder with .wav files
+i.audio = file.path("D:","MDLT AudioMoth", 
+                    "FreemanCanyonSpring", 
+                    "FC1", "FC1_20221016") # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -97,7 +101,7 @@ run.birdnet <- paste0(
   con_limit, ' --sensitivity ', sens)
 
 # Test that one command runs
-system(run.birdnet[1])# This works for one directory
+# system(run.birdnet[1])# This works for one directory
 # To get elapsed time estimates try
 system.time({ system(run.birdnet[1]) })
 # for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
@@ -421,7 +425,7 @@ If the computer shuts down during an run through the BirdNET model, you can use 
 # Find which ones were not processed
 o.list = list.files(o.results)
 o.list.1st = sapply(strsplit(o.list, "\\."), "[", 1 )
-i.list = list.files(i.audio)
+i.list = list.files(i.audio, pattern = ".WAV") #".wav"
 i.list.1st = sapply(strsplit(i.list, "\\."), "[", 1 )
 diff.list = setdiff(i.list.1st, o.list.1st)
 
