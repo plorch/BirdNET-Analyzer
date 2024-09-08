@@ -47,7 +47,10 @@ RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc'
 source("RenameFiles.R")
 
 # Single dir of .wav files
-i.audio = file.path("D:","TNC AudioMoth","CO05")
+i.audio = file.path("D:","MDLT AudioMoth",
+                    "TunnelSpring",
+                    "TU2",
+                    "TU2_20230819")
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -69,11 +72,22 @@ library(dplyr)
 # birdnet.version = 'v2.4' # Not used.Currently in the model field
 
 # Path to birdnet on your computer
-birdnet.path = "BirdNET-Analyzer/BirdNET-Analyzer.exe"
+birdnet.path = file.path("C:", 
+                         "Users", 
+                         "COO", 
+                         "AppData", 
+                         "Local", 
+                         "Programs", 
+                         "BirdNET-Analyzer",
+                         "BirdNET-Analyzer.exe")
+# birdnet.path = file.path("BirdNET-Analyzer", "BirdNET-Analyzer.exe")
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
-i.audio = file.path("D:","TNC AudioMoth","CO05") # version for a folder with .wav files
+i.audio = file.path("D:","MDLT AudioMoth",
+                    "TunnelSpring",
+                    "TU2",
+                    "TU2_20230819") # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -100,7 +114,7 @@ run.birdnet <- paste0(
 # system(run.birdnet[1])# This works for one directory
 # To get elapsed time estimates try
 system.time({ system(run.birdnet[1]) })
-# for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
+ # for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
 # very long for certain groups of files. It may have been while CPU was busy.
 
 # This works for many directories
@@ -367,7 +381,7 @@ Save the selection table.
 
 * Use highconf_verified_sgcnetc_rows to go through your selection table and verify any species of special interest, if they are present. Select confirmed = "yes" in the original selection table.
 
-```{r sgcnbirds}
+```{r sgcnbirdsprep}
 library(readxl)
 library(dplyr)
 
@@ -385,6 +399,14 @@ vetall <- c( # species on the SGCN list
   "African Collared-Dove","Barred Owl","Pin-tailed Whydah", "Rose-ringed Parakeet", "Monk Parakeet", "Mute Swan","Common Cuckoo", "Scaly-breasted Munia", "Japanese White-eye", "Black Swan","Egyptian Goose","European Goldfinch", "Mandarin Duck","Red-crowned Amazon","Red-whiskered Bulbul"
 , pif_ssrs)
 
+```
+
+
+### Generate species of interest table and output
+
+```{r sgcnbirds}
+library(dplyr)
+
 highconf_verified_sgcnetc_rows = highconf_verified %>%
   mutate(row_id = row_number()) %>%
   filter(common_name %in% vetall) %>%
@@ -393,9 +415,8 @@ View(highconf_verified_sgcnetc_rows)
 
 # Write this out for later verification
 write.csv(highconf_verified_sgcnetc_rows,
-          file.path(o.results,
-                    basename(o.results)),
-          "highconf_verified_sgcnetc_rows.csv")
+          file.path(o.results, paste0(basename(o.results),
+          "_highconf_verified_sgcnetc_rows.csv")))
 
 source("SpecListen.R")
 
