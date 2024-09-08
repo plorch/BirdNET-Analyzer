@@ -47,10 +47,14 @@ RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc'
 source("RenameFiles.R")
 
 # Single dir of .wav files
+<<<<<<< HEAD
 i.audio = file.path("D:","MDLT AudioMoth",
                     "TunnelSpring",
                     "TU2",
                     "TU2_20230819")
+=======
+i.audio = file.path("D:","TNC AudioMoth","THG09")
+>>>>>>> 692452a4372d302a311d54a9c1fd72fe131836a9
 
 # Rename files to have location info
 rnFileWithLoc(i.audio)
@@ -84,10 +88,14 @@ birdnet.path = file.path("C:",
 
 # Single dir of .wav files
 # *** Warning: *** Change things here, especially num.threads:
+<<<<<<< HEAD
 i.audio = file.path("D:","MDLT AudioMoth",
                     "TunnelSpring",
                     "TU2",
                     "TU2_20230819") # version for a folder with .wav files
+=======
+i.audio = file.path("D:","TNC AudioMoth","THG09") # version for a folder with .wav files
+>>>>>>> 692452a4372d302a311d54a9c1fd72fe131836a9
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -385,6 +393,7 @@ Save the selection table.
 library(readxl)
 library(dplyr)
 
+# Skip this section if vetall is already in memory
 sgcn <- read_excel("SGCNbirds.xlsx")
 #create a list of species on the state's Fully Protected list
 fp <- c("Peregrine Falcon","Brown Pelican","Black Rail","Ridgway's Rail","California Condor","Least Tern","Golden Eagle","Sandhill Crane","Bald Eagle","Trumpeter Swan","White-tailed Kite")
