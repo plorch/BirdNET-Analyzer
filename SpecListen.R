@@ -8,7 +8,8 @@ spec_listen = function(df = sel_table, sel_row = sel_file_row,
 {
   # Debug code, uncomment
   # print(df[sel_row,])
-  focal_row = df[sel_row,]
+  # focal_row = df[sel_row,] # Uncomment for using R table
+  focal_row = df[sel_row-1,]
   sel_wav = readWave(focal_row$filepath,
                      from = focal_row$start - buf,
                      to = focal_row$end + buf,
