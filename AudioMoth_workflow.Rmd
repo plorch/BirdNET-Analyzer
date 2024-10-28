@@ -29,7 +29,7 @@ https://storymaps.arcgis.com/collections/a074c5321dd64ca2902ba72c7012ae64?item=3
 
 ## Setup and install
 
-This workflow assumes you have installed the latest (v > 2.4) in the folder where this project resides.
+This workflow assumes you have installed the latest BirdNet Analyser (v > 2.4) in the folder where this project resides.
 
 Depends on the BirdNET CLI to allow command line running of BirdNET. Details on above webpage.
 
@@ -38,7 +38,7 @@ LOCATIONorARUID_YYYYMMDD_HHMMSS.WAV
 
 To rename files to this format:
 
-RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc' that can be used either with one path, or used with lapply to go through a list of directories.
+Use either RenameFiles.Rmd and RenameFiles.R. The later provides a function 'rnFileWithLoc' that can be used either with one path, or used with lapply to go through a list of directories.
 
 ***Warning***  Test this on a small test directory first.  Renaming files incorectly can make them inaccessible.
 
@@ -71,7 +71,7 @@ library(dplyr)
 
 # birdnet.version = 'v2.4' # Not used.Currently in the model field
 
-# Path to birdnet on your computer
+# Path to birdnet on your computer run this once
 birdnet.path = file.path("C:", 
                          "Users", 
                          "COO", 
@@ -83,11 +83,13 @@ birdnet.path = file.path("C:",
 # birdnet.path = file.path("BirdNET-Analyzer", "BirdNET-Analyzer.exe")
 
 # Single dir of .wav files
-# *** Warning: *** Change things here, especially num.threads:
-i.audio = file.path("D:","MDLT AudioMoth",
-                    "TunnelSpring",
-                    "TU2",
-                    "TU2_20230819") # version for a folder with .wav files
+# *** Warning: *** Uncomment and change things here if you are not renaming files
+#  with something like RenameFiles.R for the rnFileWithLoc() function,
+#  especially num.threads if you don't have 8 cores or more:
+# i.audio = file.path("D:","MDLT AudioMoth",
+#                     "TunnelSpring",
+#                     "TU2",
+#                     "TU2_20230819") # version for a folder with .wav files
 # i.audio = "D:/TNC AudioMoth" # version for many folders with .wav files
 o.dirname = dirname(i.audio)
 o.basename = basename(i.audio)
@@ -114,6 +116,7 @@ run.birdnet <- paste0(
 # system(run.birdnet[1])# This works for one directory
 # To get elapsed time estimates try
 system.time({ system(run.birdnet[1]) })
+
  # for CBG19, this took 250172.96 seconds or 69.5 hours due to is taking 
 # very long for certain groups of files. It may have been while CPU was busy.
 
@@ -309,16 +312,19 @@ The wrapper function spec_listen() has the following things you can set:
 ```{r viewspec}
 library(tuneR)
 library(seewave)
+library(readxl)
 
-
-sel_table = highconf_verified
+# sel_table = highconf_verified
+# To bring in external saved excel file, copy path in Windows, paste here, and 
+#  change all '\' to '/'
+sel_table = read_excel("D:/MDLT AudioMoth/TunnelSpring/TU3/Output/TU3_20230717/TU3_20230717_highconf_verified.xlsx")
 
 # Function version
 # Calls seewave::spectro using sound file and start/end points from
 # one row of a selection table.
 source("SpecListen.R")
 
-spec_listen(df = sel_table, sel_row = 175)
+spec_listen(df = sel_table, sel_row = 144)
 
 # To save the spectrogram, use this with a name that is descriptive
 # For example, 'common name_confidence_row number.pdf'
